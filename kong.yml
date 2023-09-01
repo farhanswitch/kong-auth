@@ -1,0 +1,165 @@
+_format_version: "2.1"
+
+services:
+  - name: market-magnet
+    url: http://host.docker.internal:8765
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "*"
+          credentials: true
+          preflight_continue: false
+  - name: market-magnet-socketio
+    url: http://host.docker.internal:8766
+  - name: workers
+    url: http://host.docker.internal:8877
+  - name: bot-spawner
+    url: http://host.docker.internal:7766
+  - name: keyless-auth
+    url: http://host.docker.internal:3000
+  - name: dummy-auth
+    url: http://host.docker.internal:3000
+    plugins:
+      - name: keyless-header
+        config:
+          authurl: http://host.docker.internal:3000/auth/validate-access
+          refurl: http://host.docker.internal:3000/auth/refresh
+      - name: cors
+        config:
+          origins:
+            - "*"
+          credentials: true
+          preflight_continue: false
+
+routes:
+  - name: test-keyless
+    paths:
+      - /test
+    service: dummy-auth
+
+  - name: bot-spawner
+    paths:
+      - /bot-factory/create
+      - /bot-factory/delete
+    service: bot-spawner
+    preserve_host: true
+    strip_path: false
+  - name: key-auth
+    paths:
+      - /auth/login
+      - /auth/refresh
+      - /auth/validate-access
+    service: keyless-auth
+    preserve_host: true
+    strip_path: false
+  - name: workers-protected
+    paths:
+      - /queue/get-list
+      - /queue/get-item/*
+      - /history/get-list
+      - /history/get-item/*
+    service: workers
+    plugins:
+      - name: keyless-header
+        config:
+          authurl: http://host.docker.internal:3000/auth/validate-access
+          refurl: http://host.docker.internal:3000/auth/refresh
+      - name: cors
+        config:
+          origins:
+            - "*"
+          credentials: true
+          preflight_continue: false
+    preserve_host: true
+    strip_path: false
+  - name: mm-core
+    paths:
+      - /chatbot/get-list
+      - /chatbot/get-item/*
+      - /chatbot/update
+      - /chatbot/delete
+      - /messages/add
+      - /messages/get-list
+      - /messages/get-item/*
+      - /messages/update/*
+      - /messages/delete
+      - /contacts/add
+      - /contacts/get-list
+      - /contacts/get-item/*
+      - /contacts/update/*
+      - /contacts/delete
+    service: market-magnet
+    preserve_host: true
+    strip_path: false
+    plugins:
+      - name: keyless-header
+        config:
+          authurl: http://host.docker.internal:3000/auth/validate-access
+          refurl: http://host.docker.internal:3000/auth/refresh
+      - name: cors
+        config:
+          origins:
+            - "*"
+          credentials: true
+          preflight_continue: false
+  - name: mm-private
+    paths:
+      - /chatbot/init
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "*"
+          credentials: true
+          preflight_continue: false
+    service: market-magnet
+    preserve_host: true
+    strip_path: false
+  - name: market-magnet-socket
+    preserve_host: true
+    strip_path: false
+    paths:
+      - /mm-socket
+    service: market-magnet-socketio
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "*"
+          credentials: true
+          preflight_continue: false
+
+plugins:
+  - name: cors
+    service: market-magnet
+    config:
+      origins:
+        - "*"
+      methods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - PATCH
+      headers:
+        - Authorization
+        - Content-Type
+        - X-Custom-Header
+        - Access-Control-Allow-Origin
+  - name: cors
+    service: market-magnet-socketio
+    config:
+      origins:
+        - "*"
+      methods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - PATCH
+      headers:
+        - Authorization
+        - Content-Type
+        - X-Custom-Header
+        - Access-Control-Allow-Origin
